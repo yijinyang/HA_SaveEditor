@@ -3,11 +3,11 @@ Savegame Editor for Hollywood Animals
 Currently, the stable version of the save editor allows the user to edit:
 
 Studio stats:
-Budget, cash, reputation and influence.
-Max plot elements, max contract years/movies.
+Budget (maxed out at 1 billion), cash, reputation and influence.
+Max plot elements (max 10), max contract years/movies (currently both maxed out at 10).
 
 Cinemas:
-Number of total cinemas and the number of cinemas owned by each studio. The remaining (independent cinemas) are shown but not modifyable.
+Number of total cinemas and the number of cinemas owned by each studio. The remaining (independent cinemas) are shown but not modifyable. If the total number of cinemas owned by studios exceed the number of total cinemas available, independent cinema will be shown in red as a warning.
 
 Policy:
 User can alter the studio policy at wish (once studio policy is unlocked).
