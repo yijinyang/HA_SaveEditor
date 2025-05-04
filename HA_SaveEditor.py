@@ -16,9 +16,9 @@ class SaveEditor:
         self.notebook.pack(fill='both', expand=True)
         
         # Create tabs
-        self.create_currencies_tab()
+        self.create_studio_tab()
+        self.create_cinemas_tab()
         self.create_misc_tab()
-        self.create_cinemas_tab()  # New Cinemas tab
         
         # Create menu buttons
         self.create_menu_buttons()
@@ -35,26 +35,31 @@ class SaveEditor:
         self.save_btn.pack(side='left', padx=5)
         self.exit_btn.pack(side='right', padx=5)
 
-    def create_currencies_tab(self):
-        currencies_frame = ttk.Frame(self.notebook)
-        self.notebook.add(currencies_frame, text="Currencies")
+    def create_studio_tab(self):
+        studio_frame = ttk.Frame(self.notebook)
+        self.notebook.add(studio_frame, text="Studio")
         
-        labels = ["Budget:", "Cash:", "Reputation:", "Influence:"]
-        entries = ['budget', 'cash', 'reputation', 'influence']
+        # Currencies Subgroup
+        currencies_frame = tk.LabelFrame(studio_frame, text="Currencies")
+        currencies_frame.pack(padx=10, pady=5, fill='x')
         
-        for row, (label, entry_name) in enumerate(zip(labels, entries)):
+        currency_labels = ["Budget:", "Cash:", "Reputation:", "Influence:"]
+        currency_entries = ['budget', 'cash', 'reputation', 'influence']
+        
+        for row, (label, entry_name) in enumerate(zip(currency_labels, currency_entries)):
             tk.Label(currencies_frame, text=label).grid(row=row, column=0, padx=5, pady=5, sticky="e")
             entry = tk.Entry(currencies_frame, width=20)
             entry.grid(row=row, column=1, padx=5, pady=5)
             setattr(self, f"{entry_name}_entry", entry)
+            entry.bind('<KeyRelease>', lambda e: self.update_independent_cinemas())
 
-    def create_misc_tab(self):
-        misc_frame = ttk.Frame(self.notebook)
-        self.notebook.add(misc_frame, text="Misc")
+        # Misc Subgroup
+        misc_frame = tk.LabelFrame(studio_frame, text="Misc")
+        misc_frame.pack(padx=10, pady=5, fill='x')
         
         misc_labels = [
             ("Tag Slots Max:", "TAG_SLOT_MAX"),
-            ("Movies Max Per Contract:", "CONTRACT_MOVIES_MAX"),
+            ("Max Movies Per Contract:", "CONTRACT_MOVIES_MAX"),
             ("Max Years Per Contract:", "CONTRACT_YEARS_MAX")
         ]
         
@@ -72,50 +77,110 @@ class SaveEditor:
         tk.Label(cinemas_frame, text="Total Cinemas:").grid(row=0, column=0, padx=5, pady=5, sticky="e")
         self.allCinemas_entry = tk.Entry(cinemas_frame, width=20)
         self.allCinemas_entry.grid(row=0, column=1, padx=5, pady=5)
+        self.allCinemas_entry.bind('<KeyRelease>', lambda e: self.update_independent_cinemas())
+
+        # Independent Cinemas
+        tk.Label(cinemas_frame, text="Independent Cinemas:").grid(row=1, column=0, padx=5, pady=5, sticky="e")
+        self.independent_cinemas = tk.Label(cinemas_frame, text="0", foreground="grey")
+        self.independent_cinemas.grid(row=1, column=1, padx=5, pady=5, sticky="w")
+
+        # Cinema Ownership
+        ownership_frame = tk.LabelFrame(cinemas_frame, text="Cinema Ownership")
+        ownership_frame.grid(row=2, column=0, columnspan=2, padx=10, pady=5, sticky="ew")
+        
+        studios = [
+            ("PL", "Player Studio"),
+            ("GB", "Gerstein Brothers"),
+            ("EM", "Evergreen Movies"),
+            ("SU", "Supreme"),
+            ("HE", "Hephaestus"),
+            ("MA", "Marginese")
+        ]
+        
+        for i, (code, name) in enumerate(studios):
+            row = i // 2
+            col = (i % 2) * 2
+            tk.Label(ownership_frame, text=f"{name}:").grid(row=row, column=col, padx=5, pady=2, sticky="e")
+            entry = tk.Entry(ownership_frame, width=10)
+            entry.grid(row=row, column=col+1, padx=5, pady=2, sticky="w")
+            setattr(self, f"cinema_{code}_entry", entry)
+            entry.bind('<KeyRelease>', lambda e: self.update_independent_cinemas())
+
+    def create_misc_tab(self):
+        misc_frame = ttk.Frame(self.notebook)
+        self.notebook.add(misc_frame, text="Version Info")
+        
+        # Version info (read-only)
+        tk.Label(misc_frame, text="First Save Version:").grid(row=0, column=0, padx=5, pady=2, sticky="e")
+        self.first_save_version = tk.Label(misc_frame, text="", foreground="grey")
+        self.first_save_version.grid(row=0, column=1, padx=5, pady=2, sticky="w")
+        
+        tk.Label(misc_frame, text="Last Save Version:").grid(row=1, column=0, padx=5, pady=2, sticky="e")
+        self.last_save_version = tk.Label(misc_frame, text="", foreground="grey")
+        self.last_save_version.grid(row=1, column=1, padx=5, pady=2, sticky="w")
+
+    def update_independent_cinemas(self):
+        try:
+            total = int(self.allCinemas_entry.get())
+        except:
+            total = 0
+        
+        try:
+            owned = sum(
+                int(getattr(self, f"cinema_{code}_entry").get())
+                for code in ["GB", "EM", "SU", "HE", "MA", "PL"]
+            )
+        except:
+            owned = 0
+        
+        independent = total - owned
+        self.independent_cinemas.config(
+            text=str(max(independent, 0)),
+            foreground="red" if independent < 0 else "black"
+        )
 
     def load_file(self):
         file_path = filedialog.askopenfilename(
             title="Select Save File",
-            filetypes=(("JSON files", "*.json"), ("All files", "*.*"))
-        )
+            filetypes=(("JSON files", "*.json"), ("All files", "*.*")))
         
         if file_path:
             try:
                 with open(file_path, 'r') as f:
-                    self.original_content = f.readlines()
+                    content = f.read()
                 self.current_file = file_path
+                self.original_content = content.split('\n')
                 
-                # Currency patterns
-                currency_patterns = {
-                    'budget': r'"budget":(\d+)',
-                    'cash': r'"cash":(\d+)',
-                    'reputation': r'"reputation":"(\d+\.\d{3})"',
-                    'influence': r'"influence":(\d+)'
-                }
-                
-                # Misc patterns
-                misc_patterns = {
-                    'TAG_SLOT_MAX': r'"TAG_SLOT_MAX":(\d+)',
-                    'CONTRACT_MOVIES_MAX': r'"CONTRACT_MOVIES_MAX":(\d+)',
-                    'CONTRACT_YEARS_MAX': r'"CONTRACT_YEARS_MAX":(\d+)'
-                }
-                
-                # Cinema patterns
-                cinema_patterns = {
-                    'allCinemas': r'"allCinemas":(\d+)'
-                }
-                
-                # Process currencies
-                for key, pattern in currency_patterns.items():
-                    self.process_pattern(pattern, key)
-                
-                # Process misc values
-                for key, pattern in misc_patterns.items():
-                    self.process_pattern(pattern, key)
-                
-                # Process cinema values
-                for key, pattern in cinema_patterns.items():
-                    self.process_pattern(pattern, key)
+                # Process standard fields
+                self.process_pattern(r'"budget":(\d+)', 'budget')
+                self.process_pattern(r'"cash":(\d+)', 'cash')
+                self.process_pattern(r'"reputation":"(\d+\.\d{3})"', 'reputation')
+                self.process_pattern(r'"influence":(\d+)', 'influence')
+                self.process_pattern(r'"TAG_SLOT_MAX":(\d+)', 'TAG_SLOT_MAX')
+                self.process_pattern(r'"CONTRACT_MOVIES_MAX":(\d+)', 'CONTRACT_MOVIES_MAX')
+                self.process_pattern(r'"CONTRACT_YEARS_MAX":(\d+)', 'CONTRACT_YEARS_MAX')
+                self.process_pattern(r'"allCinemas":(\d+)', 'allCinemas')
+
+                # Process cinema ownership
+                ownership_match = re.search(r'"ownedCinemas":\s*({[^}]+})', content)
+                if ownership_match:
+                    ownership_data = ownership_match.group(1)
+                    studios = ["GB", "EM", "SU", "HE", "MA", "PL"]
+                    for code in studios:
+                        match = re.search(fr'"{code}":(\d+)', ownership_data)
+                        if match:
+                            entry = getattr(self, f"cinema_{code}_entry")
+                            entry.delete(0, tk.END)
+                            entry.insert(0, match.group(1))
+
+                # Update independent cinemas
+                self.update_independent_cinemas()
+
+                # Process version info
+                first_ver = re.search(r'"firstSaveVersion":"([^"]+)"', content)
+                last_ver = re.search(r'"lastSaveVersion":"([^"]+)"', content)
+                self.first_save_version.config(text=first_ver.group(1) if first_ver else "Unknown")
+                self.last_save_version.config(text=last_ver.group(1) if last_ver else "Unknown")
                 
             except Exception as e:
                 messagebox.showerror("Error", f"Failed to load file: {str(e)}")
@@ -143,43 +208,57 @@ class SaveEditor:
         try:
             # Create backup
             bak_file = self.current_file + '.bak'
-            if os.path.exists(self.current_file):
-                shutil.copy2(self.current_file, bak_file)
+            shutil.copy2(self.current_file, bak_file)
             
-            # Validate and collect new values
+            # Read original content
+            with open(self.current_file, 'r') as f:
+                content = f.read()
+            
+            # Build updates dictionary
             updates = {
-                # Currencies
-                'budget': (r'(?<="budget":)\d+', self.budget_entry.get(), int),
-                'cash': (r'(?<="cash":)\d+', self.cash_entry.get(), int),
-                'reputation': (r'(?<="reputation":")\d+\.\d{3}', self.reputation_entry.get(), lambda x: f"{float(x):.3f}"),
-                'influence': (r'(?<="influence":)\d+', self.influence_entry.get(), int),
-                # Misc
-                'TAG_SLOT_MAX': (r'(?<="TAG_SLOT_MAX":)\d+', self.TAG_SLOT_MAX_entry.get(), int),
-                'CONTRACT_MOVIES_MAX': (r'(?<="CONTRACT_MOVIES_MAX":)\d+', self.CONTRACT_MOVIES_MAX_entry.get(), int),
-                'CONTRACT_YEARS_MAX': (r'(?<="CONTRACT_YEARS_MAX":)\d+', self.CONTRACT_YEARS_MAX_entry.get(), int),
-                # Cinemas
-                'allCinemas': (r'(?<="allCinemas":)\d+', self.allCinemas_entry.get(), int)
+                'budget': (r'(?<="budget":)\d+', self.budget_entry.get()),
+                'cash': (r'(?<="cash":)\d+', self.cash_entry.get()),
+                'reputation': (r'(?<="reputation":")\d+\.\d{3}', f"{float(self.reputation_entry.get()):.3f}"),
+                'influence': (r'(?<="influence":)\d+', self.influence_entry.get()),
+                'TAG_SLOT_MAX': (r'(?<="TAG_SLOT_MAX":)\d+', self.TAG_SLOT_MAX_entry.get()),
+                'CONTRACT_MOVIES_MAX': (r'(?<="CONTRACT_MOVIES_MAX":)\d+', self.CONTRACT_MOVIES_MAX_entry.get()),
+                'CONTRACT_YEARS_MAX': (r'(?<="CONTRACT_YEARS_MAX":)\d+', self.CONTRACT_YEARS_MAX_entry.get()),
+                'allCinemas': (r'(?<="allCinemas":)\d+', self.allCinemas_entry.get())
             }
+
+            # Validate numerical values
+            for key, (pattern, value) in updates.items():
+                if not re.match(r'^\d+$', value):
+                    if key == 'reputation' and not re.match(r'^\d+\.\d{3}$', value):
+                        raise ValueError(f"Invalid value for {key.replace('_', ' ').title()}")
+                    elif key != 'reputation':
+                        raise ValueError(f"Invalid value for {key.replace('_', ' ').title()}")
+
+            # Build cinema ownership string
+            studios = ["GB", "EM", "SU", "HE", "MA", "PL"]
+            ownership_items = []
+            for code in studios:
+                entry = getattr(self, f"cinema_{code}_entry")
+                value = entry.get()
+                if not value.isdigit():
+                    raise ValueError(f"Invalid cinema value for {code}")
+                ownership_items.append(f'"{code}":{value}')
+            new_ownership = "{" + ",".join(ownership_items) + "}"
             
-            # Validate all values first
-            for key, (pattern, value, validator) in updates.items():
-                try:
-                    validated = str(validator(value))
-                    updates[key] = (pattern, validated)
-                except:
-                    raise ValueError(f"Invalid value for {key.replace('_', ' ').title()}")
-            
-            # Update content
-            updated_content = []
-            for line in self.original_content:
-                updated_line = line
-                for pattern, replacement in updates.values():
-                    updated_line = re.sub(pattern, replacement, updated_line)
-                updated_content.append(updated_line)
-            
+            # Replace ownership data
+            content = re.sub(
+                r'"ownedCinemas":\s*{[^}]+}',
+                f'"ownedCinemas":{new_ownership}',
+                content
+            )
+
+            # Apply other updates
+            for pattern, replacement in updates.values():
+                content = re.sub(pattern, replacement, content)
+
             # Write changes
             with open(self.current_file, 'w') as f:
-                f.writelines(updated_content)
+                f.write(content)
             
             messagebox.showinfo("Success", "Save file updated successfully!\nBackup created: " + os.path.basename(bak_file))
             
