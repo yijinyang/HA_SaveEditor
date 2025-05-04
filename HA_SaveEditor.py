@@ -10,6 +10,7 @@ class SaveEditor:
         self.root.title("Hollywood Animal Save Editor")
         self.current_file = None
         self.original_content = []
+        self.policy_enabled = False
         
         # Create notebook (tabbed interface)
         self.notebook = ttk.Notebook(root)
@@ -19,6 +20,7 @@ class SaveEditor:
         self.create_studio_tab()
         self.create_cinemas_tab()
         self.create_misc_tab()
+        self.create_policy_tab()
         
         # Create menu buttons
         self.create_menu_buttons()
@@ -58,7 +60,7 @@ class SaveEditor:
         misc_frame.pack(padx=10, pady=5, fill='x')
         
         misc_labels = [
-            ("Tag Slots Max:", "TAG_SLOT_MAX"),
+            ("Max Plot Elements:", "TAG_SLOT_MAX"),
             ("Max Movies Per Contract:", "CONTRACT_MOVIES_MAX"),
             ("Max Years Per Contract:", "CONTRACT_YEARS_MAX")
         ]
@@ -119,6 +121,32 @@ class SaveEditor:
         self.last_save_version = tk.Label(misc_frame, text="", foreground="grey")
         self.last_save_version.grid(row=1, column=1, padx=5, pady=2, sticky="w")
 
+    def create_policy_tab(self):
+        self.policy_frame = ttk.Frame(self.notebook)
+        self.notebook.add(self.policy_frame, text="Policy")
+        
+        # Policy status
+        self.policy_status = tk.Label(self.policy_frame, text="Policies not unlocked")
+        self.policy_status.pack(pady=10)
+        
+        # Policy dropdown
+        self.policy_var = tk.StringVar()
+        policies = [
+            "POLICY_TRASH",
+            "POLICY_MAJOR", 
+            "POLICY_BOUTIQUE",
+            "POLICY_CONVEYOR",
+            "POLICY_AVERAGE"
+        ]
+        self.policy_dropdown = ttk.Combobox(
+            self.policy_frame,
+            textvariable=self.policy_var,
+            values=policies,
+            state="readonly"
+        )
+        self.policy_dropdown.pack(pady=10)
+        self.policy_dropdown.pack_forget()
+
     def update_independent_cinemas(self):
         try:
             total = int(self.allCinemas_entry.get())
@@ -150,6 +178,26 @@ class SaveEditor:
                     content = f.read()
                 self.current_file = file_path
                 self.original_content = content.split('\n')
+                
+                # Process policy state
+                policy_match = re.search(r'"Policy":(true|false)', content)
+                if policy_match:
+                    self.policy_enabled = policy_match.group(1) == 'true'
+                
+                # Update policy UI
+                if self.policy_enabled:
+                    self.policy_status.config(text="Active Policy:")
+                    self.policy_dropdown.pack()
+                    
+                    # Get current policy
+                    policy_match = re.search(r'"ACTIVE_POLICY":"(\w+)"', content)
+                    if policy_match:
+                        self.policy_var.set(policy_match.group(1))
+                    else:
+                        self.policy_var.set("POLICY_BOUTIQUE")
+                else:
+                    self.policy_status.config(text="Policies not unlocked")
+                    self.policy_dropdown.pack_forget()
                 
                 # Process standard fields
                 self.process_pattern(r'"budget":(\d+)', 'budget')
@@ -255,6 +303,14 @@ class SaveEditor:
             # Apply other updates
             for pattern, replacement in updates.values():
                 content = re.sub(pattern, replacement, content)
+
+            # Update policy if enabled
+            if self.policy_enabled:
+                content = re.sub(
+                    r'"ACTIVE_POLICY":"\w+"',
+                    f'"ACTIVE_POLICY":"{self.policy_var.get()}"',
+                    content
+                )
 
             # Write changes
             with open(self.current_file, 'w') as f:
