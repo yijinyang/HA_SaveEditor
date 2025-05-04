@@ -19,8 +19,8 @@ class SaveEditor:
         # Create tabs
         self.create_studio_tab()
         self.create_cinemas_tab()
-        self.create_misc_tab()
         self.create_policy_tab()
+        self.create_misc_tab()
         
         # Create menu buttons
         self.create_menu_buttons()
@@ -126,7 +126,7 @@ class SaveEditor:
         self.notebook.add(self.policy_frame, text="Policy")
         
         # Policy status
-        self.policy_status = tk.Label(self.policy_frame, text="Policies not unlocked")
+        self.policy_status = tk.Label(self.policy_frame, text="Policies are not unlocked (1933)")
         self.policy_status.pack(pady=10)
         
         # Policy dropdown
