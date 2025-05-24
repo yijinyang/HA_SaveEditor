@@ -168,8 +168,21 @@ class SaveEditor:
         )
 
     def load_file(self):
+    # Set default save directory with proper LocalLow path
+        save_dir = os.path.join(
+            os.getenv('USERPROFILE'),
+            'AppData',
+            'LocalLow',
+            'Weappy',
+            'Holly',
+            'Saves',
+            'Profiles',
+            '0'
+        )
+        
         file_path = filedialog.askopenfilename(
             title="Select Save File",
+            initialdir=save_dir,
             filetypes=(("JSON files", "*.json"), ("All files", "*.*")))
         
         if file_path:
