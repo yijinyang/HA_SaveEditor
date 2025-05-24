@@ -14,3 +14,5 @@ User can alter the studio policy at wish (once studio policy is unlocked).
 
 Version info:
 The version of the first savegame in this playthrough and the current version of the game.
+
+I have uploaded a compiler as well for those who don't want to bother figuring out how. As long as you have python and pyinstaller installed and put the py file and the bat file in the same folder, it should be able to turn it into an exe file in a folder named dist.
